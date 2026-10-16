@@ -1,0 +1,73 @@
+name: Diagnóstico de URL de cámara
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprobar variantes de la cámara ID 507
+        env:
+          CAMERA_PATH: /documents/848507/848509/507/2b6aa023-d4c3-786e-6908-ada588e9eeb2
+          ORIGINAL_QUERY: version=2.0\&t=1792156674915
+          REFERER_URL: https://movilidad.aytoburgos.es/fr/camaras-de-trafico
+        run: |
+          python - <<'PY'
+          import hashlib
+          import io
+          import time
+          import urllib.error
+          import urllib.request
+          from PIL import Image
+
+          base = "https://movilidad.aytoburgos.es"
+          path = "/documents/848507/848509/507/2b6aa023-d4c3-786e-6908-ada588e9eeb2"
+          variants = [
+              ("original", path + "?version=2.0&t=1792156674915"),
+              ("sin parámetros", path),
+              ("t actual", path + "?version=2.0&t=" + str(int(time.time() * 1000))),
+              ("parámetro _probe", path + "?version=2.0&t=1792156674915&_probe=" + str(int(time.time() * 1000))),
+          ]
+          for label, route in variants:
+              url = base + route
+              req = urllib.request.Request(url, headers={
+                  "User-Agent": "Mozilla/5.0 (compatible; CameraSourceDiagnostic/1.0)",
+                  "Referer": "https://movilidad.aytoburgos.es/fr/camaras-de-trafico",
+                  "Cache-Control": "no-cache",
+                  "Pragma": "no-cache",
+              })
+              print("\n=== " + label + " ===")
+              try:
+                  with urllib.request.urlopen(req, timeout=25) as response:
+                      body = response.read()
+                      print("status:", response.status)
+                      print("final_url:", response.geturl())
+                      print("content_type:", response.headers.get("Content-Type"))
+                      print("content_disposition:", response.headers.get("Content-Disposition"))
+                      print("bytes:", len(body))
+                      print("sha256:", hashlib.sha256(body).hexdigest())
+                      print("signature:", body[:16].hex())
+                      try:
+                          im = Image.open(io.BytesIO(body)).convert("RGB")
+                          im.thumbnail((400, 400))
+                          pixels = list(im.getdata())
+                          black_ratio = sum(1 for r,g,b in pixels if r < 8 and g < 8 and b < 8) / max(1, len(pixels))
+                          avg = tuple(round(sum(p[i] for p in pixels) / max(1, len(pixels)), 1) for i in range(3))
+                          print("image:", im.size, "format:", im.format, "near_black_ratio:", round(black_ratio, 3), "mean_rgb:", avg)
+                      except Exception as exc:
+                          print("not_decodable_as_image:", type(exc).__name__, str(exc)[:160])
+                      print("body_start:", body[:100].replace(b"\n", b" ")[:100])
+              except urllib.error.HTTPError as e:
+                  body = e.read(1000)
+                  print("http_error:", e.code, e.reason)
+                  print("content_type:", e.headers.get("Content-Type"))
+                  print("body_start:", body[:200].replace(b"\n", b" "))
+              except Exception as e:
+                  print("request_error:", type(e).__name__, str(e)[:200])
+          PY
