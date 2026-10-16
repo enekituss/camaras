@@ -59,7 +59,7 @@ async function init(retry=false) {
       cameraData = await res.json();
     }
     cards.replaceChildren(...cameraData.map(cam => makeCard(cam, retry)));
-    summary.textContent = cameraData.length + " cámaras cargadas del archivo local camaras.json.";
+    summary.textContent = cameraData.length + " cámaras cargadas. Actualización automática cada 30 segundos. Última petición: " + new Date().toLocaleTimeString("es-ES") + ".";
   } catch (e) {
     summary.textContent = "No se pudo leer camaras.json. Abre esta página desde GitHub Pages o un servidor local. Detalle: " + e.message;
   }
