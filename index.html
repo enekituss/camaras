@@ -36,18 +36,19 @@ function makeCard(cam, retry=false) {
   const coords = document.createElement("div"); coords.className = "meta"; coords.textContent = cam.lat + ", " + cam.lng;
   head.append(title, coords);
   const preview = document.createElement("div"); preview.className = "preview";
-  const img = document.createElement("img"); img.alt = "Prueba de imagen: " + cam.name; img.loading = "lazy";
+  const img = document.createElement("img"); img.alt = "Prueba de imagen: " + cam.name; img.loading = "eager"; img.referrerPolicy = "no-referrer";
   const status = document.createElement("div"); status.className = "status"; status.textContent = "Intentando cargar…";
   img.onload = () => { status.textContent = "Imagen recibida (" + img.naturalWidth + " × " + img.naturalHeight + "). No confirma que sea en directo."; };
   img.onerror = () => { status.textContent = "No se pudo mostrar como imagen. Puede ser una descarga, un formato distinto o una restricción del servidor."; };
   let imgUrl = new URL(cam.url, base);
-  // Conserva exactamente la URL original: cambiar t= hace que el servidor no entregue la imagen correctamente.
+  if (retry) imgUrl.searchParams.set("_probe", Date.now().toString());
   img.src = imgUrl.href;
   preview.append(img);
   const links = document.createElement("div"); links.className = "links";
   const open = document.createElement("a"); open.href = new URL(cam.url, base).href; open.target = "_blank"; open.rel = "noopener noreferrer"; open.textContent = "Abrir recurso original";
+  const official = document.createElement("a"); official.href = "https://movilidad.aytoburgos.es/fr/camaras-de-trafico"; official.target = "_blank"; official.rel = "noopener noreferrer"; official.textContent = "Ver cámaras oficiales";
   const map = document.createElement("a"); map.href = "https://www.openstreetmap.org/?mlat=" + cam.lat + "&mlon=" + cam.lng + "#map=18/" + cam.lat + "/" + cam.lng; map.target = "_blank"; map.rel = "noopener noreferrer"; map.textContent = "Ver ubicación";
-  links.append(open, map);
+  links.append(open, official, map);
   card.append(head, preview, status, links);
   return card;
 }
