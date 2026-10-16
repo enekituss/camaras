@@ -52,11 +52,14 @@ jobs:
                       print("final_url:", response.geturl())
                       print("content_type:", response.headers.get("Content-Type"))
                       print("content_disposition:", response.headers.get("Content-Disposition"))
-                      print("bytes:", len(body))
+                      print("first_chunk_bytes:", len(body))
                       print("sha256:", hashlib.sha256(body).hexdigest())
                       print("signature:", body[:16].hex())
                       try:
-                          im = Image.open(io.BytesIO(body)).convert("RGB")
+                          start = body.find(b"\\xff\\xd8")
+                          end = body.find(b"\\xff\\xd9", start + 2) if start >= 0 else -1
+                          image_bytes = body[start:end + 2] if start >= 0 and end >= 0 else body
+                          im = Image.open(io.BytesIO(image_bytes)).convert("RGB")
                           im.thumbnail((400, 400))
                           pixels = list(im.getdata())
                           black_ratio = sum(1 for r,g,b in pixels if r < 8 and g < 8 and b < 8) / max(1, len(pixels))
