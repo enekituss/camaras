@@ -15,10 +15,6 @@ jobs:
       - name: Instalar lector de imágenes
         run: python -m pip install --quiet pillow
       - name: Comprobar variantes de la cámara ID 507
-        env:
-          CAMERA_PATH: /documents/848507/848509/507/2b6aa023-d4c3-786e-6908-ada588e9eeb2
-          ORIGINAL_QUERY: version=2.0\&t=1792156674915
-          REFERER_URL: https://movilidad.aytoburgos.es/fr/camaras-de-trafico
         run: |
           python - <<'PY'
           import hashlib
@@ -30,49 +26,49 @@ jobs:
 
           base = "https://movilidad.aytoburgos.es"
           path = "/documents/848507/848509/507/2b6aa023-d4c3-786e-6908-ada588e9eeb2"
+          stamp = str(int(time.time() * 1000))
           variants = [
               ("original", path + "?version=2.0&t=1792156674915"),
               ("sin parámetros", path),
-              ("t actual", path + "?version=2.0&t=" + str(int(time.time() * 1000))),
-              ("parámetro _probe", path + "?version=2.0&t=1792156674915&_probe=" + str(int(time.time() * 1000))),
+              ("t actual", path + "?version=2.0&t=" + stamp),
+              ("parámetro _probe", path + "?version=2.0&t=1792156674915&_probe=" + stamp),
           ]
           for label, route in variants:
-              url = base + route
-              req = urllib.request.Request(url, headers={
+              req = urllib.request.Request(base + route, headers={
                   "User-Agent": "Mozilla/5.0 (compatible; CameraSourceDiagnostic/1.0)",
                   "Referer": "https://movilidad.aytoburgos.es/fr/camaras-de-trafico",
                   "Cache-Control": "no-cache",
                   "Pragma": "no-cache",
               })
-              print("\n=== " + label + " ===")
+              print("\\n=== " + label + " ===", flush=True)
               try:
-                  with urllib.request.urlopen(req, timeout=25) as response:
-                      body = response.read()
-                      print("status:", response.status)
-                      print("final_url:", response.geturl())
-                      print("content_type:", response.headers.get("Content-Type"))
-                      print("content_disposition:", response.headers.get("Content-Disposition"))
-                      print("first_chunk_bytes:", len(body))
-                      print("sha256:", hashlib.sha256(body).hexdigest())
-                      print("signature:", body[:16].hex())
-                      try:
-                          start = body.find(b"\\xff\\xd8")
-                          end = body.find(b"\\xff\\xd9", start + 2) if start >= 0 else -1
-                          image_bytes = body[start:end + 2] if start >= 0 and end >= 0 else body
-                          im = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-                          im.thumbnail((400, 400))
-                          pixels = list(im.getdata())
-                          black_ratio = sum(1 for r,g,b in pixels if r < 8 and g < 8 and b < 8) / max(1, len(pixels))
-                          avg = tuple(round(sum(p[i] for p in pixels) / max(1, len(pixels)), 1) for i in range(3))
-                          print("image:", im.size, "format:", im.format, "near_black_ratio:", round(black_ratio, 3), "mean_rgb:", avg)
-                      except Exception as exc:
-                          print("not_decodable_as_image:", type(exc).__name__, str(exc)[:160])
-                      print("body_start:", body[:100].replace(b"\n", b" ")[:100])
+                  with urllib.request.urlopen(req, timeout=8) as response:
+                      # read1 reads the bytes already available instead of waiting for an entire stream to finish
+                      body = response.read1(65536)
+                      print("status:", response.status, flush=True)
+                      print("content_type:", response.headers.get("Content-Type"), flush=True)
+                      print("content_disposition:", response.headers.get("Content-Disposition"), flush=True)
+                      print("first_chunk_bytes:", len(body), flush=True)
+                      print("sha256_chunk:", hashlib.sha256(body).hexdigest(), flush=True)
+                      print("signature:", body[:32].hex(), flush=True)
+                      start = body.find(b"\\xff\\xd8")
+                      end = body.find(b"\\xff\\xd9", start + 2) if start >= 0 else -1
+                      if start >= 0 and end >= 0:
+                          try:
+                              im = Image.open(io.BytesIO(body[start:end + 2])).convert("RGB")
+                              im.thumbnail((400, 400))
+                              pixels = list(im.getdata())
+                              black_ratio = sum(1 for r,g,b in pixels if r < 8 and g < 8 and b < 8) / max(1, len(pixels))
+                              avg = tuple(round(sum(p[i] for p in pixels) / max(1, len(pixels)), 1) for i in range(3))
+                              print("jpeg_frame:", im.size, "near_black_ratio:", round(black_ratio, 3), "mean_rgb:", avg, flush=True)
+                          except Exception as exc:
+                              print("jpeg_frame_decode_error:", type(exc).__name__, str(exc)[:120], flush=True)
+                      else:
+                          print("no_complete_jpeg_frame_in_first_chunk", flush=True)
+                      print("body_start:", body[:100].replace(b"\\n", b" ")[:100], flush=True)
               except urllib.error.HTTPError as e:
-                  body = e.read(1000)
-                  print("http_error:", e.code, e.reason)
-                  print("content_type:", e.headers.get("Content-Type"))
-                  print("body_start:", body[:200].replace(b"\n", b" "))
+                  print("http_error:", e.code, e.reason, "content_type:", e.headers.get("Content-Type"), flush=True)
+                  print("body_start:", e.read(200).replace(b"\\n", b" "), flush=True)
               except Exception as e:
-                  print("request_error:", type(e).__name__, str(e)[:200])
+                  print("request_error:", type(e).__name__, str(e)[:150], flush=True)
           PY
