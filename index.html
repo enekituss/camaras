@@ -41,7 +41,7 @@ function makeCard(cam, retry=false) {
   img.onload = () => { status.textContent = "Imagen recibida (" + img.naturalWidth + " × " + img.naturalHeight + "). No confirma que sea en directo."; };
   img.onerror = () => { status.textContent = "No se pudo mostrar como imagen. Puede ser una descarga, un formato distinto o una restricción del servidor."; };
   let imgUrl = new URL(cam.url, base);
-  if (retry) imgUrl.searchParams.set("t", Date.now().toString());
+  // Conserva exactamente la URL original: cambiar t= hace que el servidor no entregue la imagen correctamente.
   img.src = imgUrl.href;
   preview.append(img);
   const links = document.createElement("div"); links.className = "links";
