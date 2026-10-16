@@ -11,18 +11,14 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 1
     steps:
-      - name: Instalar lector de imágenes
-        run: python -m pip install --quiet pillow
-      - name: Comprobar variantes de la cámara ID 507
+      - name: Consultar las cabeceras de la cámara ID 507
         run: |
           python - <<'PY'
-          import hashlib
-          import io
           import time
           import urllib.error
           import urllib.request
-          from PIL import Image
 
           base = "https://movilidad.aytoburgos.es"
           path = "/documents/848507/848509/507/2b6aa023-d4c3-786e-6908-ada588e9eeb2"
@@ -42,33 +38,16 @@ jobs:
               })
               print("\\n=== " + label + " ===", flush=True)
               try:
-                  with urllib.request.urlopen(req, timeout=8) as response:
-                      # read1 reads the bytes already available instead of waiting for an entire stream to finish
-                      body = response.read1(65536)
+                  with urllib.request.urlopen(req, timeout=5) as response:
                       print("status:", response.status, flush=True)
                       print("content_type:", response.headers.get("Content-Type"), flush=True)
                       print("content_disposition:", response.headers.get("Content-Disposition"), flush=True)
-                      print("first_chunk_bytes:", len(body), flush=True)
-                      print("sha256_chunk:", hashlib.sha256(body).hexdigest(), flush=True)
-                      print("signature:", body[:32].hex(), flush=True)
-                      start = body.find(b"\\xff\\xd8")
-                      end = body.find(b"\\xff\\xd9", start + 2) if start >= 0 else -1
-                      if start >= 0 and end >= 0:
-                          try:
-                              im = Image.open(io.BytesIO(body[start:end + 2])).convert("RGB")
-                              im.thumbnail((400, 400))
-                              pixels = list(im.getdata())
-                              black_ratio = sum(1 for r,g,b in pixels if r < 8 and g < 8 and b < 8) / max(1, len(pixels))
-                              avg = tuple(round(sum(p[i] for p in pixels) / max(1, len(pixels)), 1) for i in range(3))
-                              print("jpeg_frame:", im.size, "near_black_ratio:", round(black_ratio, 3), "mean_rgb:", avg, flush=True)
-                          except Exception as exc:
-                              print("jpeg_frame_decode_error:", type(exc).__name__, str(exc)[:120], flush=True)
-                      else:
-                          print("no_complete_jpeg_frame_in_first_chunk", flush=True)
-                      print("body_start:", body[:100].replace(b"\\n", b" ")[:100], flush=True)
+                      print("content_length:", response.headers.get("Content-Length"), flush=True)
+                      print("cache_control:", response.headers.get("Cache-Control"), flush=True)
+                      print("final_url:", response.geturl(), flush=True)
+                      # We intentionally do not read the body: some camera endpoints may be streams.
               except urllib.error.HTTPError as e:
                   print("http_error:", e.code, e.reason, "content_type:", e.headers.get("Content-Type"), flush=True)
-                  print("body_start:", e.read(200).replace(b"\\n", b" "), flush=True)
               except Exception as e:
                   print("request_error:", type(e).__name__, str(e)[:150], flush=True)
           PY
