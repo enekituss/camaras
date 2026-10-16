@@ -12,6 +12,8 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - name: Instalar lector de imágenes
+        run: python -m pip install --quiet pillow
       - name: Comprobar variantes de la cámara ID 507
         env:
           CAMERA_PATH: /documents/848507/848509/507/2b6aa023-d4c3-786e-6908-ada588e9eeb2
