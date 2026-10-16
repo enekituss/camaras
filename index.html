@@ -17,7 +17,7 @@ button{background:var(--accent);color:#07111f;border:0;border-radius:10px;paddin
     <div><h1>Cámaras de Burgos</h1><p>Prueba técnica de las URL obtenidas de la página municipal.</p></div>
     <button id="reload">Reintentar imágenes</button>
   </div>
-  <div class="note"><strong>Importante:</strong> este prototipo comprueba si las direcciones devuelven algo que el navegador pueda mostrar como imagen. Que una imagen cargue no demuestra que sea vídeo en directo ni que se actualice automáticamente. Todavía no hay detector de IA ni avisos de Telegram.</div>
+  <div class="note"><strong>Prueba en curso:</strong> la página vuelve a solicitar las imágenes cada 30 segundos. Esto no garantiza que el Ayuntamiento publique una captura nueva en cada petición. Todavía no hay detector de IA ni avisos de Telegram.</div>
   <div id="summary" class="small">Cargando listado…</div>
   <section id="cards" class="grid" aria-live="polite"></section>
   <p class="small">Las imágenes son recursos externos del Ayuntamiento. La página no almacena imágenes ni contiene claves o tokens.</p>
@@ -26,6 +26,7 @@ button{background:var(--accent);color:#07111f;border:0;border-radius:10px;paddin
 const base = "https://movilidad.aytoburgos.es";
 const cards = document.getElementById("cards");
 const summary = document.getElementById("summary");
+const REFRESH_MS = 30000;
 let cameraData = [];
 function makeCard(cam, retry=false) {
   const card = document.createElement("article");
@@ -65,5 +66,6 @@ async function init(retry=false) {
 }
 document.getElementById("reload").addEventListener("click", () => init(true));
 init();
+setInterval(() => init(true), REFRESH_MS);
 </script>
 </body></html>
