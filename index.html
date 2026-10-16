@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cámaras de Burgos — prueba de imágenes</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1220;--panel:#151e2f;--line:#29364c;--muted:#a8b5c9;--text:#edf3fb;--accent:#58a6ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1180px;margin:auto;padding:28px 18px 60px}h1{margin:0 0 8px;font-size:clamp(1.6rem,4vw,2.3rem)}p{color:var(--muted)}.top{display:flex;gap:16px;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+button{background:var(--accent);color:#07111f;border:0;border-radius:10px;padding:10px 15px;font-weight:700;cursor:pointer}.note{border:1px solid #806b2c;background:#342b17;color:#f8e5a7;border-radius:12px;padding:13px 16px;margin:18px 0 22px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}.cardhead{padding:13px 15px}.cardhead h2{font-size:1.05rem;margin:0}.meta{font-size:.86rem;color:var(--muted)}.preview{display:flex;align-items:center;justify-content:center;min-height:200px;background:#080c13;overflow:hidden}.preview img{display:block;width:100%;height:auto;min-height:120px;object-fit:contain}.status{padding:10px 15px;color:var(--muted);font-size:.9rem;border-top:1px solid var(--line)}.links{padding:0 15px 15px;display:flex;gap:14px;flex-wrap:wrap}.links a{color:#8ec5ff}.small{font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body><main>
+  <div class="top">
+    <div><h1>Cámaras de Burgos</h1><p>Prueba técnica de las URL obtenidas de la página municipal.</p></div>
+    <button id="reload">Reintentar imágenes</button>
+  </div>
+  <div class="note"><strong>Importante:</strong> este prototipo comprueba si las direcciones devuelven algo que el navegador pueda mostrar como imagen. Que una imagen cargue no demuestra que sea vídeo en directo ni que se actualice automáticamente. Todavía no hay detector de IA ni avisos de Telegram.</div>
+  <div id="summary" class="small">Cargando listado…</div>
+  <section id="cards" class="grid" aria-live="polite"></section>
+  <p class="small">Las imágenes son recursos externos del Ayuntamiento. La página no almacena imágenes ni contiene claves o tokens.</p>
+</main>
+<script>
+const base = "https://movilidad.aytoburgos.es";
+const cards = document.getElementById("cards");
+const summary = document.getElementById("summary");
+let cameraData = [];
+function makeCard(cam, retry=false) {
+  const card = document.createElement("article");
+  card.className = "card";
+  const head = document.createElement("div"); head.className = "cardhead";
+  const title = document.createElement("h2"); title.textContent = cam.name + " · ID " + cam.id;
+  const coords = document.createElement("div"); coords.className = "meta"; coords.textContent = cam.lat + ", " + cam.lng;
+  head.append(title, coords);
+  const preview = document.createElement("div"); preview.className = "preview";
+  const img = document.createElement("img"); img.alt = "Prueba de imagen: " + cam.name; img.loading = "lazy";
+  const status = document.createElement("div"); status.className = "status"; status.textContent = "Intentando cargar…";
+  img.onload = () => { status.textContent = "Imagen recibida (" + img.naturalWidth + " × " + img.naturalHeight + "). No confirma que sea en directo."; };
+  img.onerror = () => { status.textContent = "No se pudo mostrar como imagen. Puede ser una descarga, un formato distinto o una restricción del servidor."; };
+  let imgUrl = new URL(cam.url, base);
+  if (retry) imgUrl.searchParams.set("_probe", Date.now().toString());
+  img.src = imgUrl.href;
+  preview.append(img);
+  const links = document.createElement("div"); links.className = "links";
+  const open = document.createElement("a"); open.href = new URL(cam.url, base).href; open.target = "_blank"; open.rel = "noopener noreferrer"; open.textContent = "Abrir recurso original";
+  const map = document.createElement("a"); map.href = "https://www.openstreetmap.org/?mlat=" + cam.lat + "&mlon=" + cam.lng + "#map=18/" + cam.lat + "/" + cam.lng; map.target = "_blank"; map.rel = "noopener noreferrer"; map.textContent = "Ver ubicación";
+  links.append(open, map);
+  card.append(head, preview, status, links);
+  return card;
+}
+async function init(retry=false) {
+  try {
+    if (!cameraData.length) {
+      const res = await fetch("./camaras.json", {cache:"no-store"});
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      cameraData = await res.json();
+    }
+    cards.replaceChildren(...cameraData.map(cam => makeCard(cam, retry)));
+    summary.textContent = cameraData.length + " cámaras cargadas del archivo local camaras.json.";
+  } catch (e) {
+    summary.textContent = "No se pudo leer camaras.json. Abre esta página desde GitHub Pages o un servidor local. Detalle: " + e.message;
+  }
+}
+document.getElementById("reload").addEventListener("click", () => init(true));
+init();
+</script>
+</body></html>
